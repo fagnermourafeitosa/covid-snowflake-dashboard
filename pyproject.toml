@@ -1,0 +1,17 @@
+[project]
+name = "covid-snowflake-dashboard"
+version = "0.1.0"
+description = "COVID Snowflake dashboard"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2.0",
+    "plotly>=5.18.0",
+    "snowflake-connector-python>=3.7.0",
+    "snowflake-snowpark-python>=1.18.0",
+    "streamlit>=1.31.0",
+    "toml>=0.10.2",
+]
+
+[tool.uv]
+# Use the pyenv virtualenv from .python-version instead of creating .venv
+# Run: source scripts/env.sh && uv sync --active
