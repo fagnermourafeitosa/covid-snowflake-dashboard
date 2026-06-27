@@ -1,61 +1,112 @@
-from collections import deque
-from io import StringIO
+"""
+src/main.py
+===========
+Ponto de entrada do app Streamlit.
+Segue estritamente a estrutura da spec 05-script-carga-dashboard.md.
+"""
+
+import sys
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 
-OWID_URL = (
-    "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/"
-    "owid-covid-data.csv"
-)
-LOCAL_CSV = Path(__file__).resolve().parent.parent / "data" / "owid-covid-data.csv"
-PREVIEW_COLUMNS = [
-    "location",
-    "date",
-    "total_cases",
-    "new_cases",
-    "total_deaths",
-    "new_deaths",
-]
+# Garante que src/ está no path para imports relativos funcionarem
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from dashboard import render_dashboard, render_onboarding
+from db.load_data import get_snowflake_session, table_has_data
+from db.query_data import load_covid_data
+
+# ---------------------------------------------------------------------------
+# Configuração da página  (spec 05 — 4.1)
+# ---------------------------------------------------------------------------
+
+_ICON_PATH = Path(__file__).resolve().parent / "assets" / "ico.png"
 
 st.set_page_config(
     page_title="COVID-19 Dashboard",
-    page_icon="🦠",
+    page_icon=str(_ICON_PATH),
     layout="wide",
 )
 
-st.title("Dashboard COVID-19")
-st.caption(
-    "Preview dummy — 5 linhas do dataset "
-    "[Our World in Data (OWID)](https://ourworldindata.org/coronavirus)"
-)
+# ---------------------------------------------------------------------------
+# Conexão Snowflake
+# ---------------------------------------------------------------------------
 
+try:
+    session = get_snowflake_session()
+except Exception as exc:
+    st.error(
+        f"❌ Não foi possível conectar ao Snowflake.\n\n"
+        f"Verifique as credenciais em `.streamlit/secrets.toml`.\n\n`{exc}`"
+    )
+    st.stop()
 
-def _read_local_tail(path: Path, n: int = 5) -> pd.DataFrame:
-    with path.open(encoding="utf-8") as handle:
-        header = handle.readline()
-        tail_lines = deque(handle, maxlen=n)
-    return pd.read_csv(StringIO(header + "".join(tail_lines)))
+# ---------------------------------------------------------------------------
+# Sidebar  (spec 05 — botões obrigatórios)
+# ---------------------------------------------------------------------------
 
+with st.sidebar:
+    _ico = Path(__file__).resolve().parent / "assets" / "ico.png"
+    st.image(str(_ico), width=64)
+    st.markdown("### COVID-19 Dashboard")
+    st.caption("Dados: [Our World in Data](https://ourworldindata.org/coronavirus)")
+    st.divider()
 
-@st.cache_data
-def load_preview() -> tuple[pd.DataFrame, str]:
-    if LOCAL_CSV.exists():
-        df = _read_local_tail(LOCAL_CSV)
-        source = f"arquivo local (`{LOCAL_CSV.name}`)"
-    else:
-        df = pd.read_csv(OWID_URL, nrows=5)
-        source = "URL remota OWID"
-    return df, source
+    # Botão 1 — spec 05: "⬇ Carregar Dados no Snowflake"
+    # Adaptado: upload via file_uploader em vez de download automático
+    btn_upload = st.button(
+        "⬇ Carregar Dados no Snowflake",
+        use_container_width=True,
+        help="Faz upload do CSV OWID e grava no Snowflake.",
+    )
 
+    # Botão 2 — spec 05: "📊 Carregar Dashboard"
+    btn_load = st.button(
+        "📊 Carregar Dashboard",
+        use_container_width=True,
+        help="Lê a tabela do Snowflake e exibe o dashboard.",
+    )
 
-with st.spinner("Carregando dados..."):
-    df, source = load_preview()
+    st.divider()
 
-display = df[[c for c in PREVIEW_COLUMNS if c in df.columns]]
+    # Informação de status após dados carregados
+    _status_placeholder = st.empty()
 
-st.info(f"Fonte: {source}")
-st.dataframe(display, use_container_width=True, hide_index=True)
+# ---------------------------------------------------------------------------
+# Fluxo principal  (spec 05 — 4.3)
+# ---------------------------------------------------------------------------
 
-st.metric("Linhas exibidas", len(display))
+# Botão 1 → mostra tela de upload
+if btn_upload:
+    st.session_state["show_upload"] = True
+    st.session_state.pop("df", None)  # limpa df para forçar re-load após upload
+
+# Botão 2 → lê tabela do Snowflake e salva em session_state
+if btn_load:
+    with st.spinner("Carregando dados do Snowflake..."):
+        st.session_state["df"] = load_covid_data(session)
+    st.session_state["show_upload"] = False
+
+# ---------------------------------------------------------------------------
+# Renderização
+# ---------------------------------------------------------------------------
+
+show_upload = st.session_state.get("show_upload", False)
+df = st.session_state.get("df")
+
+if show_upload or (df is None and not table_has_data(session)):
+    # Tela de onboarding / upload
+    render_onboarding()
+
+elif df is not None:
+    # Dashboard com dados já carregados em session_state
+    _status_placeholder.success(f"Snowflake — **{len(df):,} registros**")
+    render_dashboard(df)
+
+else:
+    # Tabela existe mas nenhum botão foi clicado ainda — orienta o usuário
+    st.info(
+        "Clique em **📊 Carregar Dashboard** na barra lateral para exibir os dados.",
+        icon="👈",
+    )
