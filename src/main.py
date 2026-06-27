@@ -107,6 +107,11 @@ elif df is not None:
 else:
     # Tabela existe mas nenhum botão foi clicado ainda — orienta o usuário
     st.info(
-        "Clique em **📊 Carregar Dashboard** na barra lateral para exibir os dados.",
-        icon="👈",
+        "A tabela COVID19 já possui dados gravados. Carregue o dashboard para visualizar.",
+        icon="📊",
     )
+    if st.button("📊 Carregar Dashboard", use_container_width=True, type="primary"):
+        with st.spinner("Carregando dados do Snowflake..."):
+            st.session_state["df"] = load_covid_data(session)
+        st.session_state["show_upload"] = False
+        st.rerun()

@@ -225,14 +225,32 @@ def render_dashboard(df: pd.DataFrame) -> None:
     ])
 
     def _export_btn(df_exp: pd.DataFrame, filename: str, key: str) -> None:
-        """Botão de download CSV com todos os dados brutos do filtro ativo."""
+        """Botão de download CSV padronizado."""
         st.download_button(
-            label="⬇ Exportar dados brutos (CSV)",
+            label="⬇ Baixar CSV",
             data=df_exp.to_csv(index=False).encode("utf-8"),
             file_name=filename,
             mime="text/csv",
             key=key,
         )
+
+    def _render_pagination(key_prefix: str, page: int, is_last: bool) -> int:
+        """Renderiza botões de paginação compactos e retorna a mudança de página (-1, 0, 1)."""
+        col1, col2, col3, _ = st.columns([1.5, 1, 1.5, 6])
+        change = 0
+        with col1:
+            if st.button("◀ Anterior", key=f"{key_prefix}_prev", disabled=page <= 1):
+                change = -1
+        with col2:
+            st.markdown(
+                f"<div style='text-align:center;padding-top:8px'>"
+                f"Pág. <b>{page}</b></div>",
+                unsafe_allow_html=True,
+            )
+        with col3:
+            if st.button("Próxima ▶", key=f"{key_prefix}_next", disabled=is_last):
+                change = 1
+        return change
 
 
     with tab1:
@@ -249,6 +267,7 @@ def render_dashboard(df: pd.DataFrame) -> None:
             font=dict(family="sans-serif", color="#374151"),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
+            modebar_bgcolor="rgba(0,0,0,0)",
             margin=dict(l=0, r=0, t=20, b=0),
             xaxis=dict(showgrid=False),
             yaxis=dict(gridcolor="#E5E7EB", gridwidth=1),
@@ -276,6 +295,7 @@ def render_dashboard(df: pd.DataFrame) -> None:
             font=dict(family="sans-serif", color="#374151"),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
+            modebar_bgcolor="rgba(0,0,0,0)",
             margin=dict(l=0, r=0, t=20, b=0),
             xaxis=dict(showgrid=False),
             yaxis=dict(gridcolor="#E5E7EB"),
@@ -308,6 +328,7 @@ def render_dashboard(df: pd.DataFrame) -> None:
         fig3.update_layout(
             font=dict(family="sans-serif", color="#374151"),
             paper_bgcolor="rgba(0,0,0,0)",
+            modebar_bgcolor="rgba(0,0,0,0)",
             margin=dict(l=0, r=0, t=20, b=0),
         )
         fig3.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
@@ -338,6 +359,7 @@ def render_dashboard(df: pd.DataFrame) -> None:
             font=dict(family="sans-serif", color="#374151"),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
+            modebar_bgcolor="rgba(0,0,0,0)",
             margin=dict(l=0, r=0, t=20, b=0),
             xaxis=dict(gridcolor="#E5E7EB"),
             yaxis=dict(gridcolor="#E5E7EB"),
@@ -352,14 +374,28 @@ def render_dashboard(df: pd.DataFrame) -> None:
     with tab5:
         st.subheader("Dados Brutos")
         
+        if "raw_page" not in st.session_state:
+            st.session_state["raw_page"] = 1
+            
+        raw_page = st.session_state["raw_page"]
+        raw_page_size = 50
+        
         # Prepara df para visualização: calcula percentual de vacinados
         df_vis = fdf.copy()
         df_vis["pct_vacinados"] = (df_vis["people_vaccinated"] / df_vis["population"]) * 100
         df_vis["pct_vacinados"] = df_vis["pct_vacinados"].fillna(0)
 
+        total_rows = len(df_vis)
+        is_last_raw = (raw_page * raw_page_size) >= total_rows
+
+        change_top = _render_pagination("raw_top", raw_page, is_last_raw)
+
+        offset = (raw_page - 1) * raw_page_size
+        paged_df = df_vis.iloc[offset : offset + raw_page_size]
+
         # Configuração de colunas premium
         st.dataframe(
-            df_vis,
+            paged_df,
             use_container_width=True,
             hide_index=True,
             column_config={
@@ -377,13 +413,19 @@ def render_dashboard(df: pd.DataFrame) -> None:
             },
             column_order=["location", "date", "total_cases", "new_cases", "total_deaths", "pct_vacinados"]
         )
+
+        change_bottom = _render_pagination("raw_bottom", raw_page, is_last_raw)
+
+        if change_top != 0 or change_bottom != 0:
+            st.session_state["raw_page"] += (change_top or change_bottom)
+            st.rerun()
+
         csv_bytes = fdf.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="⬇ Exportar CSV",
+            label="⬇ Baixar CSV",
             data=csv_bytes,
-            file_name="covid19_filtered.csv",
+            file_name="covid19_filtered_completo.csv",
             mime="text/csv",
-            use_container_width=True,
         )
 
     # ── Tab 6: Query SQL personalizada ──────────────────────────────────────
@@ -503,37 +545,20 @@ def render_dashboard(df: pd.DataFrame) -> None:
             if _k not in st.session_state:
                 st.session_state[_k] = _v
 
-        exec_col, prev_col, page_col, next_col = st.columns([2, 1, 1, 1])
-
-        with exec_col:
+        run_col, _ = st.columns([2, 8])
+        with run_col:
             run_btn = st.button("▶ Executar Query", type="primary", use_container_width=True)
-        with prev_col:
-            prev_btn = st.button(
-                "◀ Anterior", use_container_width=True,
-                disabled=st.session_state["qb_page"] <= 1,
-            )
-        with page_col:
-            st.markdown(
-                f"<div style='text-align:center;padding-top:8px'>"
-                f"Pág. <b>{st.session_state['qb_page']}</b></div>",
-                unsafe_allow_html=True,
-            )
-        with next_col:
-            next_btn = st.button(
-                "Próxima ▶", use_container_width=True,
-                disabled=st.session_state.get("qb_is_last", False),
-            )
+            
+        change_top = _render_pagination("sql_top", st.session_state["qb_page"], st.session_state.get("qb_is_last", False))
 
         # Atualiza página conforme botão
         if run_btn:
             st.session_state["qb_page"] = 1
-        elif prev_btn and st.session_state["qb_page"] > 1:
-            st.session_state["qb_page"] -= 1
-        elif next_btn:
-            st.session_state["qb_page"] += 1
+        elif change_top != 0:
+            st.session_state["qb_page"] += change_top
 
-        # Busca do Snowflake somente quando botão pressionado
-        if run_btn or prev_btn or next_btn:
+        # Busca do Snowflake somente quando botão pressionado (ou mudou a página)
+        if run_btn or change_top != 0:
             page = st.session_state["qb_page"]
             offset = (page - 1) * int(page_size)
             base_sql = sql_input.rstrip().rstrip(";")
@@ -546,9 +571,18 @@ def render_dashboard(df: pd.DataFrame) -> None:
                     st.session_state["qb_result"] = result_df
                     st.session_state["qb_result_page"] = page
                     st.session_state["qb_is_last"] = len(result_df) < int(page_size)
+                    
+                    # Se clicou em executar nova query, já baixa o full pro CSV
+                    if run_btn:
+                        full_df = run_custom_query(session, base_sql)
+                        st.session_state["qb_full_csv"] = full_df.to_csv(index=False).encode("utf-8")
+                        
                 except Exception as exc:
                     st.error(f"Erro na query: {exc}")
                     st.session_state["qb_result"] = None
+                    
+            if change_top != 0:
+                st.rerun()
 
         # Exibe resultado armazenado — persiste entre re-renders
         result_df = st.session_state.get("qb_result")
@@ -557,13 +591,20 @@ def render_dashboard(df: pd.DataFrame) -> None:
             n = len(result_df)
             st.success(f"✅ {n} linha(s) — página {rpage}")
             st.dataframe(result_df, use_container_width=True, hide_index=True)
+            
+            change_bottom = _render_pagination("sql_bottom", st.session_state["qb_page"], st.session_state.get("qb_is_last", False))
+            if change_bottom != 0:
+                st.session_state["qb_page"] += change_bottom
+                st.rerun()
+                
             if st.session_state.get("qb_is_last"):
                 st.info("Última página — não há mais registros.")
-            if not result_df.empty:
+
+            if "qb_full_csv" in st.session_state:
                 st.download_button(
-                    label="⬇ Exportar página CSV",
-                    data=result_df.to_csv(index=False).encode("utf-8"),
-                    file_name=f"query_p{rpage}.csv",
+                    label="⬇ Baixar CSV",
+                    data=st.session_state["qb_full_csv"],
+                    file_name="query_completa.csv",
                     mime="text/csv",
                 )
 
