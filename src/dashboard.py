@@ -147,8 +147,8 @@ def render_dashboard(df: pd.DataFrame) -> None:
                 </span>
             </div>
             <div style="
-                background:rgba(99,102,241,.15);
-                border:1px solid rgba(99,102,241,.35);
+                background:rgba(0,104,201,.1);
+                border:1px solid rgba(0,104,201,.25);
                 border-radius:8px;padding:.5rem .85rem;
                 font-size:.78rem;line-height:1.6;text-align:right
             ">
