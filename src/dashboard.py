@@ -177,6 +177,12 @@ def render_dashboard(df: pd.DataFrame) -> None:
         format="DD/MM/YYYY",
     )
 
+    st.sidebar.caption(
+        "ℹ️ **Aviso:** Estes filtros afetam apenas as visualizações e dados brutos. "
+        "Eles **não** se aplicam à aba *Query SQL*, que consulta os dados originais no Snowflake."
+    )
+
+
     # Aplica filtros
     mask = (
         df["location"].isin(selected)
