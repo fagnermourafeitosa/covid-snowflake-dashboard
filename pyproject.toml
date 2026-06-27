@@ -13,5 +13,5 @@ dependencies = [
 ]
 
 [tool.uv]
-# Use the pyenv virtualenv from .python-version instead of creating .venv
-# Run: source scripts/env.sh && uv sync --active
+# Local: source scripts/env.sh && uv sync --active
+# Deploy (Streamlit Cloud): usa uv.lock automaticamente

@@ -9,6 +9,7 @@ build/
 
 .venv/
 
+.pytest_cache/
 .python-version.bak
 
 .idea/
