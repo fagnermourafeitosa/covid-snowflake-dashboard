@@ -45,6 +45,7 @@ Ao concluir uma etapa relevante:
 - **Sem leitura local**: sem fallback para arquivo em disco.
 - **Filtro de colunas**: ao ingerir no Snowflake, manter apenas `KEEP_COLUMNS` (as 10 colunas principais usadas nas visualizações).
 - **Filtro de países**: usar `DEFAULT_COUNTRIES` como padrão (`Brazil`, `Spain`, `Portugal`, `United States`, `South Africa`, `China`).
+- **Design/UI**: É estritamente proibido o uso de paletas de cores "IAish" (tons de índigo, violeta, roxo neon) ou elementos que remetam a design típico de LLMs. Usar sempre cores corporativas clássicas ou paletas de dados neutras.
 
 ---
 

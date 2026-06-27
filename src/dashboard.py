@@ -30,34 +30,39 @@ from db.query_data import load_covid_data, run_custom_query
 def render_onboarding() -> None:
     """Tela de boas-vindas exibida quando a tabela COVID19 está vazia."""
 
-    st.markdown(
-        """
-        <div style="text-align:center; padding: 2rem 0 1rem;">
-            <span style="font-size:4rem">🦠</span>
-            <h1 style="margin-bottom:.25rem">COVID-19 Snowflake Dashboard</h1>
-            <p style="color:var(--text-color); opacity:.7; font-size:1.05rem">
-                Nenhum dado encontrado na tabela <code>COVID19</code>.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Centraliza o conteúdo com colunas (UX/UI premium)
+    _, col, _ = st.columns([1, 2, 1])
 
-    st.info(
-        "**Antes de usar o dashboard, carregue o arquivo oficial OWID.**\n\n"
-        f"Baixe o CSV em:\n```\n{OWID_URL}\n```\n\n"
-        "Depois faça o upload abaixo. Somente este arquivo é aceito.",
-        icon="📂",
-    )
+    with col:
+        st.markdown(
+            """
+            <div style="text-align:center; padding: 3rem 0 2rem;">
+                <span style="font-size:4.5rem; display:block; margin-bottom:1rem">🗄️</span>
+                <h1 style="margin-bottom:.5rem; font-size: 2.2rem; font-weight: 800;">Setup Inicial do Dashboard</h1>
+                <p style="color:var(--text-color); opacity:.7; font-size:1.1rem; line-height:1.5;">
+                    Parece que sua tabela <code>COVID19</code> no Snowflake está vazia. <br>
+                    Vamos carregá-la em 2 passos simples.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    st.divider()
-    st.subheader("📤 Upload do CSV OWID")
+        st.info(
+            "**Passo 1:** Baixe o arquivo de dados brutos (CSV) diretamente do repositório oficial da OWID:\n\n"
+            f"[👉 Clique aqui para baixar]({OWID_URL})\n\n"
+            "**Passo 2:** Faça o upload do arquivo logo abaixo para processar e gravar no Snowflake.",
+            icon="ℹ️",
+        )
 
-    uploaded = st.file_uploader(
-        "Selecione o arquivo `owid-covid-data.csv`",
-        type=["csv"],
-        help=f"Arquivo disponível em: {OWID_URL}",
-    )
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("📤 Área de Upload", anchor=False)
+
+        uploaded = st.file_uploader(
+            "Selecione o arquivo `owid-covid-data.csv`",
+            type=["csv"],
+            help="Somente arquivos com a estrutura padrão OWID são aceitos.",
+        )
 
     if uploaded is None:
         return
@@ -238,9 +243,17 @@ def render_dashboard(df: pd.DataFrame) -> None:
             y="new_cases",
             color="location",
             labels={"date": "Data", "new_cases": "Novos Casos", "location": "País"},
-            template="plotly_dark",
+            template="plotly_white",
         )
-        fig1.update_traces(line_width=1.5)
+        fig1.update_layout(
+            font=dict(family="sans-serif", color="#374151"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=20, b=0),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(gridcolor="#E5E7EB", gridwidth=1),
+        )
+        fig1.update_traces(line_width=3)
         st.plotly_chart(fig1, use_container_width=True)
         _export_btn(fdf, "novos_casos.csv", "dl_tab1")
 
@@ -256,9 +269,20 @@ def render_dashboard(df: pd.DataFrame) -> None:
             y="total_deaths",
             color="location",
             labels={"location": "País", "total_deaths": "Total de Óbitos"},
-            template="plotly_dark",
+            template="plotly_white",
         )
-        fig2.update_layout(showlegend=False)
+        fig2.update_layout(
+            showlegend=False,
+            font=dict(family="sans-serif", color="#374151"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=20, b=0),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(gridcolor="#E5E7EB"),
+            barmode="group",
+            bargap=0.3,
+        )
+        fig2.update_traces(marker_line_width=0, opacity=0.9, marker=dict(cornerradius=4))
         st.plotly_chart(fig2, use_container_width=True)
         _export_btn(
             fdf[["location", "date", "total_deaths", "new_deaths"]],
@@ -278,9 +302,15 @@ def render_dashboard(df: pd.DataFrame) -> None:
             names="location",
             values="pct_vacinados",
             labels={"location": "País", "pct_vacinados": "% Vacinados"},
-            template="plotly_dark",
-            hole=0.35,
+            template="plotly_white",
+            hole=0.45,
         )
+        fig3.update_layout(
+            font=dict(family="sans-serif", color="#374151"),
+            paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=20, b=0),
+        )
+        fig3.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
         st.plotly_chart(fig3, use_container_width=True)
         vac_export = fdf[["location", "date", "people_vaccinated",
                           "people_fully_vaccinated", "population"]].copy()
@@ -302,9 +332,17 @@ def render_dashboard(df: pd.DataFrame) -> None:
                 "total_cases": "Total de Casos",
                 "location": "País",
             },
-            template="plotly_dark",
+            template="plotly_white",
         )
-        fig4.update_traces(textposition="top center")
+        fig4.update_layout(
+            font=dict(family="sans-serif", color="#374151"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=20, b=0),
+            xaxis=dict(gridcolor="#E5E7EB"),
+            yaxis=dict(gridcolor="#E5E7EB"),
+        )
+        fig4.update_traces(textposition="top center", marker=dict(line=dict(width=1, color='DarkSlateGrey')))
         st.plotly_chart(fig4, use_container_width=True)
         scat_export = fdf[["location", "date", "population",
                            "total_cases", "new_cases"]].copy()
@@ -313,7 +351,32 @@ def render_dashboard(df: pd.DataFrame) -> None:
     # ── Tab 5: Dados Brutos ──────────────────────────────────────────────────
     with tab5:
         st.subheader("Dados Brutos")
-        st.dataframe(fdf, use_container_width=True, hide_index=True)
+        
+        # Prepara df para visualização: calcula percentual de vacinados
+        df_vis = fdf.copy()
+        df_vis["pct_vacinados"] = (df_vis["people_vaccinated"] / df_vis["population"]) * 100
+        df_vis["pct_vacinados"] = df_vis["pct_vacinados"].fillna(0)
+
+        # Configuração de colunas premium
+        st.dataframe(
+            df_vis,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "location": st.column_config.TextColumn("País", width="medium"),
+                "date": st.column_config.DateColumn("Data", format="DD/MM/YYYY"),
+                "total_cases": st.column_config.NumberColumn("Total de Casos", format="%d"),
+                "total_deaths": st.column_config.NumberColumn("Óbitos", format="%d"),
+                "new_cases": st.column_config.NumberColumn("Novos Casos", format="%d"),
+                "pct_vacinados": st.column_config.ProgressColumn(
+                    "% Vacinados",
+                    format="%.1f%%",
+                    min_value=0,
+                    max_value=100,
+                ),
+            },
+            column_order=["location", "date", "total_cases", "new_cases", "total_deaths", "pct_vacinados"]
+        )
         csv_bytes = fdf.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="⬇ Exportar CSV",
